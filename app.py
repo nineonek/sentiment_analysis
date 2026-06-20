@@ -12,8 +12,10 @@ def load_project_data():
     df = pd.read_parquet("app_data.parquet")
     df['date'] = pd.to_datetime(df['date'])
     # On s'assure que tout est au format texte pour éviter les bugs de recherche
-    df['headline'] = df['headline'].fillna('').astype(str)
-    df['title'] = df['title'].fillna('').astype(str)
+    if 'headline' in df.columns:
+        df['headline'] = df['headline'].fillna('').astype(str)
+    if 'title' in df.columns:
+        df['title'] = df['title'].fillna('').astype(str)
     return df
 
 try:
@@ -57,9 +59,10 @@ st.write("Entre un mot-clé : l'IA va filtrer les articles et calculer leur scor
 keyword = st.text_input("Mot-clé à chercher (ex: Lufthansa, Suicide, Search, Paris) :")
 
 if keyword:
-    # Filtrage par mot-clé (dans headline OU title)
-    mask = df_clean['headline'].str.contains(keyword, case=False, na=False) | \
-           df_clean['title'].str.contains(keyword, case=False, na=False)
+    # FILTRAGE SÉCURISÉ : On cherche dans 'headline' et UNIQUEMENT dans 'title' si la colonne existe
+    mask = df_clean['headline'].str.contains(keyword, case=False, na=False)
+    if 'title' in df_clean.columns:
+        mask = mask | df_clean['title'].str.contains(keyword, case=False, na=False)
         
     results = df_clean[mask].copy()
     
@@ -83,7 +86,10 @@ if keyword:
         col2.metric("Moyenne Emotionnelle (Sentiment)", f"{avg_score:.4f}", help="De -1 (Ultra-négatif) à +1 (Positif/Neutre)")
         
         st.subheader(f"Articles correspondants à '{keyword}'")
-        st.dataframe(results[['date', 'headline', 'sentiment_score']].sort_values(by='date', ascending=False), use_container_width=True)
+        
+        # On affiche uniquement les colonnes qui existent réellement
+        colonnes_affichage = ['date', 'headline', 'sentiment_score']
+        st.dataframe(results[colonnes_affichage].sort_values(by='date', ascending=False), use_container_width=True)
     else:
         st.warning(f"Aucun article ne contient le mot '{keyword}'.")
 
